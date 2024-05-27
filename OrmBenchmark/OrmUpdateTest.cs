@@ -8,7 +8,7 @@ using ViennaNET.Orm.Application;
 
 namespace OrmBenchmark;
 
-[SimpleJob(RunStrategy.ColdStart, launchCount: 1, warmupCount: 1, iterationCount: 3, id: "OrmUpdateTest")]
+[MemoryDiagnoser]
 public class OrmUpdateTest
 {
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -41,7 +41,7 @@ public class OrmUpdateTest
     }
 
     [Benchmark(Baseline = true)]
-    public void ViennaSelect()
+    public void ViennaUpdate()
     {
         using (AsyncScopedLifestyle.BeginScope(_viennaContainer))
         {
