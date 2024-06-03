@@ -26,7 +26,6 @@ public class OrmSelectTest
         _viennaContainer = ViennaOrm.GetContainer();
     }
 
-
     [Benchmark]
     public IReadOnlyCollection<Blog> EfSelect()
     {

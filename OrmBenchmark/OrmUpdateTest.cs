@@ -32,19 +32,23 @@ public class OrmUpdateTest
     {
         using var context = new TestContext();
         context.Truncate<Blog>();
-        _data = Enumerable.Range(0, NumBlogs).Select(
-        i => new Blog
-        {
-            Name = $"Blog{i}",
-            Url = $"blog{i}.blogs.net",
-            Rating = i % 5
-        }).ToArray();
+
+        _data = Enumerable
+            .Range(0, NumBlogs)
+            .Select(
+                i => new Blog
+                {
+                    Name = $"Blog{i}",
+                    Url = $"blog{i}.blogs.net",
+                    Rating = i % 5
+                }).ToArray();
         context.Blogs.AddRange(_data);
+
         context.BulkSaveChanges();
     }
 
     [Benchmark(Baseline = true)]
-    public int ViennaUpdate()
+    public void ViennaUpdate()
     {
         using (AsyncScopedLifestyle.BeginScope(_viennaContainer))
         {
@@ -53,53 +57,38 @@ public class OrmUpdateTest
             using (var unitOfWork = entityFactoryService.Create())
             {
                 var blogs = entityFactoryService.Create<Blog>().Query().ToArray();
-                foreach (var blog in blogs)
-                {
-                    blog.Url = "Updated";
-                }
+                foreach (var blog in blogs) blog.Url = "Updated";
 
                 unitOfWork.Commit();
-
-                return blogs.Length;
             }
         }
     }
 
     [Benchmark]
-    public int EfClassicUpdate()
+    public void EfClassicUpdate()
     {
         using var ctx = new TestContext();
         var blogs = ctx.Blogs.ToArray();
-        foreach (var blog in blogs)
-        {
-            blog.Url = "Updated";
-        }
+        foreach (var blog in blogs) blog.Url = "Updated";
 
         ctx.SaveChanges();
-
-        return blogs.Length;
     }
 
     [Benchmark]
-    public int EfClassicUpdateBulkSaveChanges()
+    public void EfClassicUpdateBulkSaveChanges()
     {
         using var ctx = new TestContext();
         var blogs = ctx.Blogs.ToArray();
-        foreach (var blog in blogs)
-        {
-            blog.Url = "Updated";
-        }
+        foreach (var blog in blogs) blog.Url = "Updated";
 
         ctx.BulkSaveChanges();
-
-        return blogs.Length;
     }
 
     [Benchmark]
-    public int EfExecuteUpdate()
+    public void EfExecuteUpdate()
     {
         using var ctx = new TestContext();
-        return ctx.Blogs.ExecuteUpdate(setters => setters.SetProperty(p => p.Url, "Updated"));
+        ctx.Blogs.ExecuteUpdate(setters => setters.SetProperty(p => p.Url, "Updated"));
     }
 
     public class TestContext : DbContext
@@ -107,7 +96,9 @@ public class OrmUpdateTest
         public DbSet<Blog> Blogs { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=orm_test;Username=postgres;Password=pupalupa");
+        {
+            optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=orm_test;Username=postgres;Password=pupalupa");
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
