@@ -5,7 +5,7 @@ using SimpleInjector;
 using SimpleInjector.Lifestyles;
 using ViennaNET.Orm.Application;
 
-namespace OrmBenchmark;
+namespace OrmBenchmark.Benchmarks;
 
 [MemoryDiagnoser]
 [KeepBenchmarkFiles]

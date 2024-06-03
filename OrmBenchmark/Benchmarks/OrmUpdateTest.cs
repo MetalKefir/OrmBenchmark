@@ -5,21 +5,21 @@ using SimpleInjector;
 using SimpleInjector.Lifestyles;
 using ViennaNET.Orm.Application;
 
-namespace OrmBenchmark;
+namespace OrmBenchmark.Benchmarks;
 
 [MemoryDiagnoser]
 [KeepBenchmarkFiles]
 [HtmlExporter]
 [RPlotExporter]
 [PlainExporter]
-public class OrmDeleteTest
+public class OrmUpdateTest
 {
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     private Container _viennaContainer;
     private Blog[] _data;
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-    [Params(1_000, 10_000, 100_000, 1_000_000)]
+    [Params(100, 1_000, 10_000)]
     public int NumBlogs; // number of records to write [once], and read [each pass]
 
     [GlobalSetup]
@@ -28,7 +28,6 @@ public class OrmDeleteTest
         using var context = new TestContext();
         context.Database.EnsureDeleted();
         context.Database.EnsureCreated();
-
         _viennaContainer = ViennaOrm.GetContainer();
     }
 
@@ -47,11 +46,13 @@ public class OrmDeleteTest
                     Url = $"blog{i}.blogs.net",
                     Rating = i % 5
                 }).ToArray();
-        context.BulkInsert(_data);
+        context.Blogs.AddRange(_data);
+
+        context.BulkSaveChanges();
     }
 
     [Benchmark(Baseline = true)]
-    public void ViennaDelete()
+    public void ViennaUpdate()
     {
         using (AsyncScopedLifestyle.BeginScope(_viennaContainer))
         {
@@ -59,15 +60,8 @@ public class OrmDeleteTest
 
             using (var unitOfWork = entityFactoryService.Create())
             {
-                var blogs = entityFactoryService.Create<Blog>()
-                    .Query()
-                    .Where(x => x.Id % 2 == 0)
-                    .ToArray();
-
-                foreach (var blog in blogs)
-                {
-                    entityFactoryService.Create<Blog>().Delete(blog);
-                }
+                var blogs = entityFactoryService.Create<Blog>().Query().ToArray();
+                foreach (var blog in blogs) blog.Url = "Updated";
 
                 unitOfWork.Commit();
             }
@@ -75,54 +69,30 @@ public class OrmDeleteTest
     }
 
     [Benchmark]
-    public void EfForeachRemove()
+    public void EfClassicUpdate()
     {
         using var ctx = new TestContext();
-        var blogs = ctx.Blogs
-            .Where(x => x.Id % 2 == 0)
-            .ToArray();
-
-        foreach (var blog in blogs)
-        {
-            ctx.Remove(blog);
-        }
+        var blogs = ctx.Blogs.ToArray();
+        foreach (var blog in blogs) blog.Url = "Updated";
 
         ctx.SaveChanges();
     }
 
     [Benchmark]
-    public void EfRemoveRange()
+    public void EfClassicUpdateBulkSaveChanges()
     {
         using var ctx = new TestContext();
-        var blogs = ctx.Blogs
-            .Where(x => x.Id % 2 == 0)
-            .ToArray();
-
-        ctx.Blogs.RemoveRange(blogs);
-
-        ctx.SaveChanges();
-    }
-
-    [Benchmark]
-    public void EfBulkDelete()
-    {
-        using var ctx = new TestContext();
-        var blogs = ctx.Blogs
-            .Where(x => x.Id % 2 == 0)
-            .ToArray();
-
-        ctx.BulkDelete(blogs);
+        var blogs = ctx.Blogs.ToArray();
+        foreach (var blog in blogs) blog.Url = "Updated";
 
         ctx.BulkSaveChanges();
     }
 
     [Benchmark]
-    public void EfExecuteDelete()
+    public void EfExecuteUpdate()
     {
         using var ctx = new TestContext();
-        ctx.Blogs
-            .Where(x => x.Id % 2 == 0)
-            .ExecuteDelete();
+        ctx.Blogs.ExecuteUpdate(setters => setters.SetProperty(p => p.Url, "Updated"));
     }
 
     public class TestContext : DbContext
