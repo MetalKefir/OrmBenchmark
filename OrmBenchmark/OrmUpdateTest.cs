@@ -1,5 +1,4 @@
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Engines;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using SimpleInjector;
@@ -16,18 +15,15 @@ public class OrmUpdateTest
     private Blog[] _data;
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-    [Params(10)]
+    [Params(100, 1_000, 10_000)]
     public int NumBlogs; // number of records to write [once], and read [each pass]
 
     [GlobalSetup]
     public void Setup()
     {
-        _data = Enumerable.Range(0, NumBlogs).Select(
-            i => new Blog
-            {
-                Name = $"Blog{i}", Url = $"blog{i}.blogs.net", Rating = i % 5
-            }).ToArray();
-
+        using var context = new TestContext();
+        context.Database.EnsureDeleted();
+        context.Database.EnsureCreated();
         _viennaContainer = ViennaOrm.GetContainer();
     }
 
@@ -35,13 +31,20 @@ public class OrmUpdateTest
     public void IterationSetup()
     {
         using var context = new TestContext();
-        context.Database.EnsureDeleted();
-        context.Database.EnsureCreated();
+        context.Truncate<Blog>();
+        _data = Enumerable.Range(0, NumBlogs).Select(
+        i => new Blog
+        {
+            Name = $"Blog{i}",
+            Url = $"blog{i}.blogs.net",
+            Rating = i % 5
+        }).ToArray();
         context.Blogs.AddRange(_data);
+        context.BulkSaveChanges();
     }
 
     [Benchmark(Baseline = true)]
-    public void ViennaUpdate()
+    public int ViennaUpdate()
     {
         using (AsyncScopedLifestyle.BeginScope(_viennaContainer))
         {
@@ -56,13 +59,14 @@ public class OrmUpdateTest
                 }
 
                 unitOfWork.Commit();
+
+                return blogs.Length;
             }
         }
     }
 
-
     [Benchmark]
-    public void EfClassicUpdate()
+    public int EfClassicUpdate()
     {
         using var ctx = new TestContext();
         var blogs = ctx.Blogs.ToArray();
@@ -72,10 +76,12 @@ public class OrmUpdateTest
         }
 
         ctx.SaveChanges();
+
+        return blogs.Length;
     }
 
     [Benchmark]
-    public void EfClassicUpdateBulkSaveChanges()
+    public int EfClassicUpdateBulkSaveChanges()
     {
         using var ctx = new TestContext();
         var blogs = ctx.Blogs.ToArray();
@@ -85,13 +91,15 @@ public class OrmUpdateTest
         }
 
         ctx.BulkSaveChanges();
+
+        return blogs.Length;
     }
 
     [Benchmark]
-    public void EfExecuteUpdate()
+    public int EfExecuteUpdate()
     {
         using var ctx = new TestContext();
-        ctx.Blogs.ExecuteUpdate(setters => setters.SetProperty(p => p.Url, "Updated"));
+        return ctx.Blogs.ExecuteUpdate(setters => setters.SetProperty(p => p.Url, "Updated"));
     }
 
     public class TestContext : DbContext
@@ -107,13 +115,13 @@ public class OrmUpdateTest
                 .ToTable("blogs").HasKey(p => p.Id);
 
             modelBuilder.Entity<Blog>()
-                .Property(x=>x.Id).HasColumnName("id");
+                .Property(x => x.Id).HasColumnName("id");
             modelBuilder.Entity<Blog>()
-                .Property(x=>x.Name).HasColumnName("name");
+                .Property(x => x.Name).HasColumnName("name");
             modelBuilder.Entity<Blog>()
-                .Property(x=>x.Url).HasColumnName("url");
+                .Property(x => x.Url).HasColumnName("url");
             modelBuilder.Entity<Blog>()
-                .Property(x=>x.Rating).HasColumnName("rating");
+                .Property(x => x.Rating).HasColumnName("rating");
         }
     }
 }
