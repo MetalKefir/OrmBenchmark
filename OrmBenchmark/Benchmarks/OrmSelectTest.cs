@@ -16,7 +16,7 @@ public class OrmSelectTest
     private Container _viennaContainer;
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-    [Params(100, 1_000, 10_000, 100_000, 1_000_000)]
+    [Params(100, 1_000, 10_000, 100_000)]
     public int NumBlogs; // number of records to write [once], and read [each pass]
 
     [GlobalSetup]
