@@ -28,8 +28,20 @@ public class DepartmentServiceBench
     _departmentService = new NewDepartmentService(_departmentList);
   }
 
-  [Benchmark]
+  [Benchmark(Baseline = true)]
   public void FindByNameAtLevel()
+  {
+    _ = _departmentService.FindByNameAtLevel("сектор прямых доставок в г. Тольятти", level: Level);
+  }
+
+  [Benchmark]
+  public void FindByNameAtLevelRecursive()
+  {
+    _ = _departmentService.FindByNameAtLevelRecursive("сектор прямых доставок в г. Тольятти", level: Level);
+  }
+
+  [Benchmark]
+  public void FindByNameAtLevelRecursiveWithPredicate()
   {
     _ = _departmentService.FindByNameAtLevelFiltered("сектор прямых доставок в г. Тольятти", level: Level);
   }

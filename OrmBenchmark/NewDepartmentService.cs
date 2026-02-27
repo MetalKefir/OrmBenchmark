@@ -4,7 +4,19 @@ public sealed class NewDepartmentService(IEnumerable<Department> departments)
 {
     private IReadOnlyList<DepartmentNode> Roots { get; } = DepartmentForestBuilder.Build(departments);
 
-    public DepartmentNode? FindByNameAtLevelFiltered(string name, int level) =>
+  public DepartmentNode? FindByNameAtLevel(string name, int level) =>
+    Roots.Select(root => TraverseLevel(root, level)
+            .FirstOrDefault(n => n.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        .OfType<DepartmentNode>()
+        .FirstOrDefault();
+
+  public DepartmentNode? FindByNameAtLevelRecursive(string name, int level) =>
+      Roots.Select(root => TraverseLevelRecursive(root, level)
+              .FirstOrDefault(n => n.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+          .OfType<DepartmentNode>()
+          .FirstOrDefault();
+
+  public DepartmentNode? FindByNameAtLevelFiltered(string name, int level) =>
         Roots.Select(root =>
                 TraverseLevelFiltered(root, level, node => node.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             .OfType<DepartmentNode>()
@@ -43,7 +55,56 @@ public sealed class NewDepartmentService(IEnumerable<Department> departments)
         throw new KeyNotFoundException($"Department {id} not found");
     }
 
-    private static IEnumerable<DepartmentNode> TraverseLevelFiltered(
+  private static IEnumerable<DepartmentNode> TraverseLevel(DepartmentNode root, int targetLevel)
+  {
+    var queue = new Queue<(DepartmentNode Node, int Depth)>();
+    queue.Enqueue((root, 0));
+
+    while (queue.Count > 0)
+    {
+      var (node, depth) = queue.Dequeue();
+      if (depth == targetLevel)
+      {
+        yield return node;
+      }
+
+      if (depth > targetLevel)
+      {
+        continue;
+      }
+
+      foreach (var child in node.Children)
+      {
+        queue.Enqueue((child, depth + 1));
+      }
+    }
+  }
+
+  private static IEnumerable<DepartmentNode> TraverseLevelRecursive(DepartmentNode root, int targetLevel)
+  {
+    if (targetLevel == 0)
+    {
+      yield return root;
+      yield break;
+    }
+
+    foreach (var child in root.Children)
+    {
+      if (targetLevel == 1)
+      {
+        yield return child;
+      }
+      else
+      {
+        foreach (var node in TraverseLevelRecursive(child, targetLevel - 1))
+        {
+          yield return node;
+        }
+      }
+    }
+  }
+
+  private static IEnumerable<DepartmentNode> TraverseLevelFiltered(
         DepartmentNode root,
         int targetLevel,
         Func<DepartmentNode, bool> predicate)
